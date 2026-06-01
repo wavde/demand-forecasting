@@ -1,0 +1,68 @@
+{
+  "python": "3.12.10",
+  "seed": 7,
+  "series": {
+    "days": 739,
+    "start": "2009-12-01",
+    "end": "2011-12-09"
+  },
+  "backtest": {
+    "horizon": 28,
+    "n_folds": 6,
+    "seasonal_period": 7
+  },
+  "headline": {
+    "best_model": "SARIMA",
+    "mase": 0.741,
+    "smape": 29.67,
+    "mase_improve_pct_vs_seasonal_naive": 18.5,
+    "smape_improve_pct_vs_seasonal_naive": 21.4
+  },
+  "metrics_by_model": [
+    {
+      "model": "SARIMA",
+      "smape": 29.6724,
+      "rmse": 6981.7583,
+      "mase": 0.7412,
+      "smape_improve_pct": 21.365,
+      "mase_improve_pct": 18.5436
+    },
+    {
+      "model": "ETS",
+      "smape": 30.6264,
+      "rmse": 7174.267,
+      "mase": 0.7733,
+      "smape_improve_pct": 18.8368,
+      "mase_improve_pct": 15.0105
+    },
+    {
+      "model": "seasonal_naive",
+      "smape": 37.7343,
+      "rmse": 8104.9168,
+      "mase": 0.9099,
+      "smape_improve_pct": 0.0,
+      "mase_improve_pct": 0.0
+    },
+    {
+      "model": "LightGBM",
+      "smape": 36.7657,
+      "rmse": 8501.8982,
+      "mase": 0.9657,
+      "smape_improve_pct": 2.5669,
+      "mase_improve_pct": -6.1309
+    }
+  ],
+  "causal_did": {
+    "design": "two-way fixed-effects panel DiD",
+    "n_stores": 24,
+    "window_days": 180,
+    "true_uplift": 0.15,
+    "estimated_uplift": 0.1488,
+    "ci": [
+      0.1421,
+      0.1557
+    ],
+    "p_value": 0.0,
+    "recovered": true
+  }
+}
