@@ -110,6 +110,7 @@ Its point forecast is the median quantile.
 To make the answer decision-relevant, the script also reports:
 
 - a second series (all non-UK countries combined: smaller and noisier),
+- an AIC-tuned SARIMA that re-selects (p,q)(P,Q) on each fold's training data,
 - fold-by-fold wins against SARIMA,
 - MASE by lead time (days 1–7, 8–14, 15–21, 22–28), and
 - MASE when every model sees only the last 365, 112 or 56 days of history.
@@ -125,15 +126,18 @@ The write-up is
 ```text
                   UK MASE   rest-of-world MASE
 SARIMA              0.741          0.584
+SARIMA-tuned        0.748          0.584
 Chronos-Bolt        0.784          0.589
 seasonal_naive      0.910          0.907
 ```
 
 Both clearly beat seasonal-naive. Against SARIMA, Chronos-Bolt wins 1 of 6 UK folds
 and 3 of 6 rest-of-world folds; most of the UK gap is one fold, the Christmas peak
-(MASE 1.30 vs 1.04). It does beat SARIMA when models only get a short history:
-with the last 56 days, 0.729 vs 0.850 (UK) and 0.600 vs 0.737 (rest of world).
-Six folds per series can't separate differences of a few percent.
+(MASE 1.30 vs 1.04). Per-fold AIC tuning barely moves SARIMA. Chronos-Bolt does beat
+both SARIMAs when models only get a short history: with the last 56 days, 0.729 vs
+0.850 fixed / 1.048 tuned (UK) and 0.600 vs 0.737 / 0.702 (rest of world). With
+that little data, AIC tuning overfits on the UK series. Six folds per series can't
+separate differences of a few percent.
 
 ![pretrained vs SARIMA](docs/pretrained_vs_sarima.png)
 
@@ -163,10 +167,10 @@ python run_pretrained.py   # writes docs/pretrained_results.md, docs/pretrained_
 ```
 
 The first run downloads the model weights (~190 MB) from Hugging Face, pinned to a
-fixed commit in `pretrained.py`. The full comparison takes about 2 minutes on a laptop CPU.
+fixed commit in `pretrained.py`. The full comparison takes about 8 minutes on a laptop CPU, most of it the SARIMA order search.
 
 ```bash
-pytest -q        # 42 tests: metrics, feature leakage, baselines, backtest, DiD, data, pretrained wrapper
+pytest -q        # 44 tests: metrics, feature leakage, baselines, backtest, DiD, data, models, pretrained wrapper
 ruff check .     # lint
 ```
 
@@ -179,7 +183,7 @@ src/demand_forecasting/
   metrics.py      MAPE / sMAPE / RMSE / MASE
   features.py     leakage-safe lag, rolling, calendar/holiday features
   baselines.py    naive, seasonal-naive, moving average
-  models.py       ETS, SARIMA, LightGBM (recursive, with intervals)
+  models.py       ETS, SARIMA (fixed and AIC-tuned), LightGBM (recursive, with intervals)
   pretrained.py   zero-shot Chronos-Bolt wrapper (optional extra)
   backtest.py     rolling-origin CV, per-step forecasts, lead-time and fold summaries
   postprocess.py  closed-day business rule
