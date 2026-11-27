@@ -29,6 +29,15 @@ plt.rcParams.update(
 _BLUE = "#2f6df6"
 _ORANGE = "#f59e0b"
 _GREY = "#8b95a7"
+_GREEN = "#16a34a"
+_PURPLE = "#7c3aed"
+_MODEL_COLORS = {
+    "seasonal_naive": _GREY,
+    "SARIMA": _BLUE,
+    "ETS": _GREEN,
+    "LightGBM": _PURPLE,
+    "Chronos-Bolt": _ORANGE,
+}
 
 
 def _save(fig: plt.Figure, name: str) -> Path:
@@ -118,4 +127,83 @@ def plot_backtest(summary: pd.DataFrame, name: str = "backtest.png") -> Path:
     ax.set_xlabel("MASE (lower is better)")
     ax.set_title("Backtested MASE by model")
     ax.legend()
+    return _save(fig, name)
+
+
+def plot_pretrained_comparison(
+    mase_by_series: pd.DataFrame,
+    horizon_mase: pd.DataFrame,
+    history_mase: pd.DataFrame,
+    primary_label: str,
+    name: str = "pretrained_vs_sarima.png",
+) -> Path:
+    """Three panels: MASE by model per series, by lead time, and by context length.
+
+    Args:
+        mase_by_series: index = model, columns = series label, values = mean MASE.
+        horizon_mase: index = model, columns = lead-time bucket, values = mean MASE
+            (for ``primary_label``).
+        history_mase: index = history-length label (in plot order), columns = model,
+            values = mean MASE (for ``primary_label``).
+        primary_label: name of the series used in the second and third panels.
+    """
+    fig, axes = plt.subplots(1, 3, figsize=(16, 4.8))
+
+    ax = axes[0]
+    models = list(mase_by_series.index)
+    n_series = len(mase_by_series.columns)
+    width = 0.8 / max(n_series, 1)
+    y = np.arange(len(models))
+    for i, col in enumerate(mase_by_series.columns):
+        ax.barh(
+            y + (i - (n_series - 1) / 2) * width,
+            mase_by_series[col].to_numpy(),
+            height=width,
+            color=[_BLUE, _ORANGE, _GREEN, _PURPLE][i % 4],
+            alpha=0.85,
+            label=col,
+        )
+    ax.set_yticks(y)
+    ax.set_yticklabels(models)
+    ax.invert_yaxis()
+    ax.axvline(1.0, color=_GREY, ls="--", lw=1)
+    ax.set_xlabel("MASE (lower is better)")
+    ax.set_title("Full history: MASE by model")
+    ax.legend(fontsize=8, loc="upper center", bbox_to_anchor=(0.5, -0.14), ncol=n_series)
+
+    ax = axes[1]
+    buckets = list(horizon_mase.columns)
+    for model, row in horizon_mase.iterrows():
+        ax.plot(
+            buckets,
+            row.to_numpy(),
+            marker="o",
+            color=_MODEL_COLORS.get(str(model), "black"),
+            label=model,
+        )
+    ax.set_xlabel("lead time (days ahead)")
+    ax.set_ylabel("MASE")
+    ax.set_title(f"{primary_label}: error by lead time")
+    ax.legend(fontsize=8)
+
+    ax = axes[2]
+    labels = [str(i) for i in history_mase.index]
+    for model in history_mase.columns:
+        ax.plot(
+            labels,
+            history_mase[model].to_numpy(),
+            marker="o",
+            color=_MODEL_COLORS.get(str(model), "black"),
+            ls="--" if model == "seasonal_naive" else "-",
+            label=model,
+        )
+    ax.set_xlabel("training history given to the model (days)")
+    ax.set_ylabel("MASE")
+    ax.set_title(f"{primary_label}: error vs history length")
+    ax.legend(fontsize=8)
+
+    fig.suptitle(
+        "Zero-shot Chronos-Bolt vs SARIMA — same rolling-origin folds, 28-day horizon",
+        fontweight="bold",
+    )
     return _save(fig, name)

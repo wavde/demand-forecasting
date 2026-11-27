@@ -1,0 +1,368 @@
+{
+  "python": "3.12.10",
+  "seed": 7,
+  "environment": {
+    "model_id": "amazon/chronos-bolt-small",
+    "requested_revision": "772f3d25d38aec6d914c8949dab4462e2d46f5d8",
+    "resolved_commit": "772f3d25d38aec6d914c8949dab4462e2d46f5d8",
+    "chronos-forecasting": "2.3.2",
+    "torch": "2.15.0",
+    "transformers": "5.24.1"
+  },
+  "backtest": {
+    "horizon": 28,
+    "n_folds": 6,
+    "seasonal_period": 7,
+    "closed_dow": [
+      5
+    ],
+    "history_limits": [
+      "full",
+      "365",
+      "112",
+      "56"
+    ]
+  },
+  "series": {
+    "UK": {
+      "days": 739,
+      "start": "2009-12-01",
+      "end": "2011-12-09",
+      "metrics_by_model": [
+        {
+          "model": "SARIMA",
+          "smape": 29.6724,
+          "rmse": 6981.7583,
+          "mase": 0.7412,
+          "smape_improve_pct": 21.365,
+          "mase_improve_pct": 18.5436
+        },
+        {
+          "model": "ETS",
+          "smape": 30.6264,
+          "rmse": 7174.267,
+          "mase": 0.7733,
+          "smape_improve_pct": 18.8368,
+          "mase_improve_pct": 15.0105
+        },
+        {
+          "model": "Chronos-Bolt",
+          "smape": 30.8234,
+          "rmse": 7411.256,
+          "mase": 0.7839,
+          "smape_improve_pct": 18.3146,
+          "mase_improve_pct": 13.8535
+        },
+        {
+          "model": "seasonal_naive",
+          "smape": 37.7343,
+          "rmse": 8104.9168,
+          "mase": 0.9099,
+          "smape_improve_pct": 0.0,
+          "mase_improve_pct": 0.0
+        },
+        {
+          "model": "LightGBM",
+          "smape": 36.7657,
+          "rmse": 8501.8982,
+          "mase": 0.9657,
+          "smape_improve_pct": 2.5669,
+          "mase_improve_pct": -6.1309
+        }
+      ],
+      "head_to_head": [
+        {
+          "fold": 0,
+          "incumbent": 0.4125,
+          "challenger": 0.4253,
+          "diff": 0.0128,
+          "challenger_wins": false,
+          "test_start": "2011-06-25",
+          "test_end": "2011-07-22"
+        },
+        {
+          "fold": 1,
+          "incumbent": 0.6277,
+          "challenger": 0.6399,
+          "diff": 0.0122,
+          "challenger_wins": false,
+          "test_start": "2011-07-23",
+          "test_end": "2011-08-19"
+        },
+        {
+          "fold": 2,
+          "incumbent": 0.7516,
+          "challenger": 0.7586,
+          "diff": 0.007,
+          "challenger_wins": false,
+          "test_start": "2011-08-20",
+          "test_end": "2011-09-16"
+        },
+        {
+          "fold": 3,
+          "incumbent": 0.8264,
+          "challenger": 0.7802,
+          "diff": -0.0462,
+          "challenger_wins": true,
+          "test_start": "2011-09-17",
+          "test_end": "2011-10-14"
+        },
+        {
+          "fold": 4,
+          "incumbent": 0.788,
+          "challenger": 0.7985,
+          "diff": 0.0104,
+          "challenger_wins": false,
+          "test_start": "2011-10-15",
+          "test_end": "2011-11-11"
+        },
+        {
+          "fold": 5,
+          "incumbent": 1.0409,
+          "challenger": 1.3007,
+          "diff": 0.2599,
+          "challenger_wins": false,
+          "test_start": "2011-11-12",
+          "test_end": "2011-12-09"
+        }
+      ],
+      "mase_by_lead_time": [
+        {
+          "model": "Chronos-Bolt",
+          "1-7": 0.6728,
+          "8-14": 0.7352,
+          "15-21": 0.6256,
+          "22-28": 1.1018
+        },
+        {
+          "model": "ETS",
+          "1-7": 0.669,
+          "8-14": 0.6043,
+          "15-21": 0.7157,
+          "22-28": 1.1044
+        },
+        {
+          "model": "LightGBM",
+          "1-7": 0.7921,
+          "8-14": 0.8558,
+          "15-21": 0.9214,
+          "22-28": 1.2934
+        },
+        {
+          "model": "SARIMA",
+          "1-7": 0.6596,
+          "8-14": 0.5641,
+          "15-21": 0.6862,
+          "22-28": 1.0548
+        },
+        {
+          "model": "seasonal_naive",
+          "1-7": 0.6727,
+          "8-14": 0.7095,
+          "15-21": 0.9429,
+          "22-28": 1.3146
+        }
+      ],
+      "mase_by_history_days": [
+        {
+          "history_days": "full",
+          "seasonal_naive": 0.9099,
+          "SARIMA": 0.7412,
+          "ETS": 0.7733,
+          "Chronos-Bolt": 0.7839
+        },
+        {
+          "history_days": "365",
+          "seasonal_naive": 0.9099,
+          "SARIMA": 0.7214,
+          "ETS": 0.7693,
+          "Chronos-Bolt": 0.7609
+        },
+        {
+          "history_days": "112",
+          "seasonal_naive": 0.9099,
+          "SARIMA": 0.7581,
+          "ETS": 0.7232,
+          "Chronos-Bolt": 0.8115
+        },
+        {
+          "history_days": "56",
+          "seasonal_naive": 0.9099,
+          "SARIMA": 0.85,
+          "ETS": 0.807,
+          "Chronos-Bolt": 0.7287
+        }
+      ]
+    },
+    "Rest of world": {
+      "days": 739,
+      "start": "2009-12-01",
+      "end": "2011-12-09",
+      "metrics_by_model": [
+        {
+          "model": "SARIMA",
+          "smape": 72.6448,
+          "rmse": 3259.6609,
+          "mase": 0.584,
+          "smape_improve_pct": 27.7959,
+          "mase_improve_pct": 35.5952
+        },
+        {
+          "model": "Chronos-Bolt",
+          "smape": 77.474,
+          "rmse": 3452.3705,
+          "mase": 0.5887,
+          "smape_improve_pct": 22.996,
+          "mase_improve_pct": 35.0707
+        },
+        {
+          "model": "ETS",
+          "smape": 74.4873,
+          "rmse": 3332.3161,
+          "mase": 0.6051,
+          "smape_improve_pct": 25.9646,
+          "mase_improve_pct": 33.2648
+        },
+        {
+          "model": "LightGBM",
+          "smape": 91.1549,
+          "rmse": 3902.8106,
+          "mase": 0.7576,
+          "smape_improve_pct": 9.3981,
+          "mase_improve_pct": 16.4516
+        },
+        {
+          "model": "seasonal_naive",
+          "smape": 100.6103,
+          "rmse": 4713.0965,
+          "mase": 0.9067,
+          "smape_improve_pct": 0.0,
+          "mase_improve_pct": 0.0
+        }
+      ],
+      "head_to_head": [
+        {
+          "fold": 0,
+          "incumbent": 0.4568,
+          "challenger": 0.4175,
+          "diff": -0.0392,
+          "challenger_wins": true,
+          "test_start": "2011-06-25",
+          "test_end": "2011-07-22"
+        },
+        {
+          "fold": 1,
+          "incumbent": 0.7047,
+          "challenger": 0.7196,
+          "diff": 0.0149,
+          "challenger_wins": false,
+          "test_start": "2011-07-23",
+          "test_end": "2011-08-19"
+        },
+        {
+          "fold": 2,
+          "incumbent": 0.4662,
+          "challenger": 0.45,
+          "diff": -0.0161,
+          "challenger_wins": true,
+          "test_start": "2011-08-20",
+          "test_end": "2011-09-16"
+        },
+        {
+          "fold": 3,
+          "incumbent": 0.6114,
+          "challenger": 0.6381,
+          "diff": 0.0266,
+          "challenger_wins": false,
+          "test_start": "2011-09-17",
+          "test_end": "2011-10-14"
+        },
+        {
+          "fold": 4,
+          "incumbent": 0.7803,
+          "challenger": 0.7775,
+          "diff": -0.0029,
+          "challenger_wins": true,
+          "test_start": "2011-10-15",
+          "test_end": "2011-11-11"
+        },
+        {
+          "fold": 5,
+          "incumbent": 0.4845,
+          "challenger": 0.5298,
+          "diff": 0.0453,
+          "challenger_wins": false,
+          "test_start": "2011-11-12",
+          "test_end": "2011-12-09"
+        }
+      ],
+      "mase_by_lead_time": [
+        {
+          "model": "Chronos-Bolt",
+          "1-7": 0.7503,
+          "8-14": 0.4633,
+          "15-21": 0.5385,
+          "22-28": 0.6029
+        },
+        {
+          "model": "ETS",
+          "1-7": 0.7244,
+          "8-14": 0.4969,
+          "15-21": 0.565,
+          "22-28": 0.6341
+        },
+        {
+          "model": "LightGBM",
+          "1-7": 0.7451,
+          "8-14": 0.6155,
+          "15-21": 0.8542,
+          "22-28": 0.8155
+        },
+        {
+          "model": "SARIMA",
+          "1-7": 0.6832,
+          "8-14": 0.4814,
+          "15-21": 0.5493,
+          "22-28": 0.622
+        },
+        {
+          "model": "seasonal_naive",
+          "1-7": 1.0725,
+          "8-14": 0.7258,
+          "15-21": 0.883,
+          "22-28": 0.9457
+        }
+      ],
+      "mase_by_history_days": [
+        {
+          "history_days": "full",
+          "seasonal_naive": 0.9067,
+          "SARIMA": 0.584,
+          "ETS": 0.6051,
+          "Chronos-Bolt": 0.5887
+        },
+        {
+          "history_days": "365",
+          "seasonal_naive": 0.9067,
+          "SARIMA": 0.6121,
+          "ETS": 0.6149,
+          "Chronos-Bolt": 0.5942
+        },
+        {
+          "history_days": "112",
+          "seasonal_naive": 0.9067,
+          "SARIMA": 0.6778,
+          "ETS": 0.6595,
+          "Chronos-Bolt": 0.5894
+        },
+        {
+          "history_days": "56",
+          "seasonal_naive": 0.9067,
+          "SARIMA": 0.7369,
+          "ETS": 0.729,
+          "Chronos-Bolt": 0.6004
+        }
+      ]
+    }
+  }
+}

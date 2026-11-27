@@ -7,14 +7,22 @@ the primary country, and aggregate to a continuous daily total-units series.
 
 from __future__ import annotations
 
+import re
 import zipfile
+from pathlib import Path
 
 import pandas as pd
 import requests
 
 from . import config
 
-__all__ = ["download", "load_transactions", "build_daily_demand", "get_daily_demand"]
+__all__ = [
+    "download",
+    "load_transactions",
+    "aggregate_daily",
+    "build_daily_demand",
+    "get_daily_demand",
+]
 
 
 def download(force: bool = False) -> None:
@@ -66,16 +74,20 @@ def _clean(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def build_daily_demand(country: str | None = None) -> pd.DataFrame:
-    """Aggregate cleaned transactions to a continuous daily units series.
+def aggregate_daily(clean: pd.DataFrame, country: str | None = None) -> pd.DataFrame:
+    """Aggregate cleaned transaction lines to a continuous daily ``units`` series.
 
-    Returns a frame with a complete ``date`` DatetimeIndex (gaps filled with 0)
-    and a single ``units`` column. The trailing/leading all-zero padding from the
-    reindex is trimmed to the observed trading range.
+    ``country`` selects one country; ``config.REST_OF_WORLD`` selects every country
+    except ``config.PRIMARY_COUNTRY``. Gaps inside the observed trading range are
+    filled with 0.
     """
     country = country or config.PRIMARY_COUNTRY
-    df = _clean(load_transactions())
-    df = df[df["country"] == country]
+    if country == config.REST_OF_WORLD:
+        df = clean[clean["country"] != config.PRIMARY_COUNTRY].copy()
+    else:
+        df = clean[clean["country"] == country].copy()
+    if df.empty:
+        raise ValueError(f"no transactions for country={country!r}")
     df["date"] = df["invoice_date"].dt.normalize()
     daily = df.groupby("date", as_index=True)["quantity"].sum().rename("units")
 
@@ -87,11 +99,29 @@ def build_daily_demand(country: str | None = None) -> pd.DataFrame:
     return out
 
 
+def build_daily_demand(country: str | None = None) -> pd.DataFrame:
+    """Aggregate cleaned transactions to a continuous daily units series.
+
+    Returns a frame with a complete ``date`` DatetimeIndex (gaps filled with 0)
+    and a single ``units`` column. The trailing/leading all-zero padding from the
+    reindex is trimmed to the observed trading range.
+    """
+    return aggregate_daily(_clean(load_transactions()), country)
+
+
+def _cache_path(country: str | None) -> Path:
+    if country is None or country == config.PRIMARY_COUNTRY:
+        return config.DAILY_CSV
+    slug = re.sub(r"[^a-z0-9]+", "_", country.lower()).strip("_")
+    return config.PROCESSED_DIR / f"daily_demand_{slug}.csv"
+
+
 def get_daily_demand(country: str | None = None, rebuild: bool = False) -> pd.DataFrame:
-    """Return the daily demand series, caching the result to CSV."""
+    """Return the daily demand series, caching the result to CSV (one file per country)."""
     config.ensure_dirs()
-    if config.DAILY_CSV.exists() and not rebuild:
-        return pd.read_csv(config.DAILY_CSV, index_col="date", parse_dates=["date"])
+    path = _cache_path(country)
+    if path.exists() and not rebuild:
+        return pd.read_csv(path, index_col="date", parse_dates=["date"])
     out = build_daily_demand(country)
-    out.to_csv(config.DAILY_CSV)
+    out.to_csv(path)
     return out

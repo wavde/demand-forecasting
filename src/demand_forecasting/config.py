@@ -37,6 +37,10 @@ CLOSED_DOW: tuple[int, ...] = (5,)
 # volume is the United Kingdom. We forecast total UK daily units.
 PRIMARY_COUNTRY = "United Kingdom"
 
+# Pseudo-country for "every country except PRIMARY_COUNTRY": a second, smaller and
+# noisier daily series from the same retailer, used as a robustness check.
+REST_OF_WORLD = "rest_of_world"
+
 
 def ensure_dirs() -> None:
     """Create the local data/report directories if they do not exist."""

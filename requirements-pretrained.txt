@@ -1,0 +1,6 @@
+# Optional extra for run_pretrained.py (zero-shot Chronos-Bolt vs SARIMA).
+# Not needed for run.py, the tests, or CI. Pulls in torch and transformers.
+# For a smaller CPU-only torch on Linux, install torch first from
+# https://download.pytorch.org/whl/cpu, then this file.
+-r requirements.txt
+chronos-forecasting>=2.0,<3  # developed with 2.3.2 (torch 2.15, transformers 5.24)
