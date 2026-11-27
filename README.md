@@ -170,9 +170,17 @@ The first run downloads the model weights (~190 MB) from Hugging Face, pinned to
 fixed commit in `pretrained.py`. The full comparison takes about 8 minutes on a laptop CPU, most of it the SARIMA order search.
 
 ```bash
-pytest -q        # 44 tests: metrics, feature leakage, baselines, backtest, DiD, data, models, pretrained wrapper
+pytest -q        # 47 tests: metrics, feature leakage, baselines, backtest, DiD, data, models, pretrained wrapper, smoke harness
 ruff check .     # lint
+make smoke       # both pipelines end to end on synthetic data, outputs to a temp dir
 ```
+
+CI runs `python run.py --smoke` and `python run_pretrained.py --smoke` on every push,
+so a clean-install break in either pipeline fails the build. Smoke runs don't download
+anything. They feed synthetic transactions with the UCI schema through the real
+cleaning and aggregation code, and a seasonal-naive stub stands in for Chronos-Bolt,
+so no torch or model weights are needed. The full pipelines run Chronos-Bolt itself,
+which CI never does. Smoke outputs are not results.
 
 ## Repo layout
 
@@ -189,6 +197,7 @@ src/demand_forecasting/
   postprocess.py  closed-day business rule
   causal.py       synthetic promo panel + two-way FE DiD
   plots.py        EDA and diagnostic figures
+  smoke.py        CI smoke harness: synthetic UCI-schema data and a Chronos stub
 run.py            single-command end-to-end pipeline
 run_pretrained.py single-command pretrained-vs-SARIMA comparison
 tests/            unit tests for the pure functions

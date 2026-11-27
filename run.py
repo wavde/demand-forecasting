@@ -3,6 +3,7 @@
 Run everything with a single command:
 
     python run.py
+    python run.py --smoke   # CI: synthetic data with the UCI schema, outputs to a temp dir
 
 Outputs:
     docs/eda.png, docs/backtest.png, docs/forecast.png, docs/residuals.png
@@ -11,10 +12,12 @@ Outputs:
 
 from __future__ import annotations
 
+import argparse
 import json
 import platform
 import random
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
@@ -32,6 +35,14 @@ def set_seeds(seed: int = config.SEED) -> None:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="End-to-end demand-forecasting pipeline")
+    parser.add_argument("--smoke", action="store_true",
+                        help="synthetic data, outputs to a temp dir (for CI)")
+    if parser.parse_args().smoke:
+        from demand_forecasting import smoke
+
+        smoke.activate(Path(tempfile.mkdtemp()))
+        print(f"SMOKE RUN: synthetic data, outputs under {config.DOCS_DIR.parent}")
     set_seeds()
     config.ensure_dirs()
 

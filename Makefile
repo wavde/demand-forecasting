@@ -1,4 +1,4 @@
-.PHONY: install install-pretrained data run pretrained test lint clean
+.PHONY: install install-pretrained data run pretrained smoke test lint clean
 
 install:
 	python -m pip install --upgrade pip
@@ -16,6 +16,10 @@ run:
 
 pretrained:
 	python run_pretrained.py
+
+smoke:
+	python run.py --smoke
+	python run_pretrained.py --smoke
 
 test:
 	pytest -q
