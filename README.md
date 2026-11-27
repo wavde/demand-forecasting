@@ -3,7 +3,8 @@
 > Daily demand forecasting on a public retail dataset, evaluated the way a
 > production team would: a seasonal-naive baseline, three models of increasing
 > sophistication, and a rolling-origin backtest that reports the lift over the
-> baseline. Plus a small causal bonus that recovers a known promo uplift.
+> baseline. Plus a small causal bonus that recovers a known promo uplift, and a
+> zero-shot pretrained forecaster scored on the same backtest.
 
 ![CI](https://github.com/wavde/demand-forecasting/actions/workflows/ci.yml/badge.svg)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)
@@ -94,6 +95,53 @@ the real demand *shape* (shared seasonality, store-level scaling, noise); a know
 fixed-effects DiD on log demand — store FE absorbing level, date FE absorbing the
 common seasonal movement — recovers **14.9% (95% CI [14.2%, 15.6%], p ≈ 0)**.
 
+## Pretrained forecaster vs SARIMA
+
+**Question:** does a zero-shot pretrained time-series model beat SARIMA under the
+same rolling-origin backtest, and under what conditions?
+
+`run_pretrained.py` adds [Chronos-Bolt](https://huggingface.co/amazon/chronos-bolt-small)
+(`amazon/chronos-bolt-small`, CPU) to the backtest above with no other changes: the
+same 6 folds, 28-day horizon, MASE scaling, closed-Saturday rule, seasonal-naive
+baseline and SARIMA(1,1,1)(1,1,1)₇. The model is used zero-shot: pretrained weights,
+no fine-tuning, and each fold passes only that fold's training history as context.
+Its point forecast is the median quantile.
+
+To make the answer decision-relevant, the script also reports:
+
+- a second series (all non-UK countries combined: smaller and noisier),
+- fold-by-fold wins against SARIMA,
+- MASE by lead time (days 1–7, 8–14, 15–21, 22–28), and
+- MASE when every model sees only the last 365, 112 or 56 days of history.
+
+Results, with the exact model commit and library versions, are written by the
+script to [`docs/pretrained_results.md`](docs/pretrained_results.md) and
+[`docs/pretrained_vs_sarima.png`](docs/pretrained_vs_sarima.png).
+The write-up is
+[Pretrained forecasters vs SARIMA](https://github.com/wavde/wavde/blob/main/writing/pretrained-forecasters-vs-sarima.md).
+
+**Result: zero-shot Chronos-Bolt does not beat SARIMA with full history.**
+
+```text
+                  UK MASE   rest-of-world MASE
+SARIMA              0.741          0.584
+Chronos-Bolt        0.784          0.589
+seasonal_naive      0.910          0.907
+```
+
+Both clearly beat seasonal-naive. Against SARIMA, Chronos-Bolt wins 1 of 6 UK folds
+and 3 of 6 rest-of-world folds; most of the UK gap is one fold, the Christmas peak
+(MASE 1.30 vs 1.04). It does beat SARIMA when models only get a short history:
+with the last 56 days, 0.729 vs 0.850 (UK) and 0.600 vs 0.737 (rest of world).
+Six folds per series can't separate differences of a few percent.
+
+![pretrained vs SARIMA](docs/pretrained_vs_sarima.png)
+
+**Determinism.** Chronos-Bolt predicts quantiles in a single forward pass with no
+sampling (unlike the original Chronos, which samples trajectories). The script
+also fixes the seed (`SEED = 7`) and runs torch on CPU with one thread, so reruns
+on the same machine and library versions match.
+
 ## Reproduce
 
 ```bash
@@ -106,8 +154,19 @@ Everything is deterministic (`SEED = 7`), developed on **Python 3.12** and teste
 on 3.10–3.12. Outputs land in `docs/` (figures) and `reports/` (`metrics.json`,
 `metrics.md`).
 
+The pretrained comparison needs an optional extra (torch + chronos-forecasting),
+which the base install and CI do not use:
+
 ```bash
-pytest -q        # 26 tests: metrics, feature leakage, baselines, backtest, DiD
+pip install -r requirements-pretrained.txt
+python run_pretrained.py   # writes docs/pretrained_results.md, docs/pretrained_vs_sarima.png
+```
+
+The first run downloads the model weights (~190 MB) from Hugging Face, pinned to a
+fixed commit in `pretrained.py`. The full comparison takes about 2 minutes on a laptop CPU.
+
+```bash
+pytest -q        # 42 tests: metrics, feature leakage, baselines, backtest, DiD, data, pretrained wrapper
 ruff check .     # lint
 ```
 
@@ -121,11 +180,13 @@ src/demand_forecasting/
   features.py     leakage-safe lag, rolling, calendar/holiday features
   baselines.py    naive, seasonal-naive, moving average
   models.py       ETS, SARIMA, LightGBM (recursive, with intervals)
-  backtest.py     rolling-origin CV + summary
+  pretrained.py   zero-shot Chronos-Bolt wrapper (optional extra)
+  backtest.py     rolling-origin CV, per-step forecasts, lead-time and fold summaries
   postprocess.py  closed-day business rule
   causal.py       synthetic promo panel + two-way FE DiD
   plots.py        EDA and diagnostic figures
 run.py            single-command end-to-end pipeline
+run_pretrained.py single-command pretrained-vs-SARIMA comparison
 tests/            unit tests for the pure functions
 ```
 

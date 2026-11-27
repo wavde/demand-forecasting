@@ -9,7 +9,7 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import ArrayLike
 
-__all__ = ["mae", "rmse", "mape", "smape", "mase"]
+__all__ = ["mae", "rmse", "mape", "smape", "mase", "mase_scale"]
 
 
 def _to_arrays(y_true: ArrayLike, y_pred: ArrayLike) -> tuple[np.ndarray, np.ndarray]:
@@ -57,6 +57,20 @@ def smape(y_true: ArrayLike, y_pred: ArrayLike) -> float:
     return float(np.mean(2.0 * np.abs(yp[mask] - yt[mask]) / denom[mask]) * 100.0)
 
 
+def mase_scale(y_train: ArrayLike, seasonal_period: int = 1) -> float:
+    """In-sample MAE of the (seasonal) naive forecast on ``y_train``: the MASE denominator."""
+    tr = np.asarray(y_train, dtype=float)
+    m = int(seasonal_period)
+    if m < 1:
+        raise ValueError("seasonal_period must be >= 1")
+    if tr.size <= m:
+        raise ValueError("y_train too short for the requested seasonal_period")
+    scale = float(np.mean(np.abs(tr[m:] - tr[:-m])))
+    if scale == 0:
+        raise ValueError("naive scaling factor is zero (constant training series)")
+    return scale
+
+
 def mase(
     y_true: ArrayLike,
     y_pred: ArrayLike,
@@ -76,13 +90,4 @@ def mase(
         seasonal_period: 1 for a random-walk naive scaler, m for seasonal naive.
     """
     yt, yp = _to_arrays(y_true, y_pred)
-    tr = np.asarray(y_train, dtype=float)
-    m = int(seasonal_period)
-    if m < 1:
-        raise ValueError("seasonal_period must be >= 1")
-    if tr.size <= m:
-        raise ValueError("y_train too short for the requested seasonal_period")
-    scale = np.mean(np.abs(tr[m:] - tr[:-m]))
-    if scale == 0:
-        raise ValueError("naive scaling factor is zero (constant training series)")
-    return float(np.mean(np.abs(yt - yp)) / scale)
+    return float(np.mean(np.abs(yt - yp)) / mase_scale(y_train, seasonal_period))
