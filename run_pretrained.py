@@ -42,7 +42,12 @@ from demand_forecasting.backtest import (  # noqa: E402
     summarize,
     with_history_limit,
 )
-from demand_forecasting.models import ETSModel, LightGBMModel, SarimaModel  # noqa: E402
+from demand_forecasting.models import (  # noqa: E402
+    AutoSarimaModel,
+    ETSModel,
+    LightGBMModel,
+    SarimaModel,
+)
 from demand_forecasting.pretrained import (  # noqa: E402
     DEFAULT_MODEL_ID,
     ChronosBoltModel,
@@ -51,6 +56,7 @@ from demand_forecasting.pretrained import (  # noqa: E402
 
 CHALLENGER = "Chronos-Bolt"
 INCUMBENT = "SARIMA"
+TUNED = "SARIMA-tuned"
 BASELINE = "seasonal_naive"
 
 # Series label -> country selector understood by data.get_daily_demand.
@@ -95,12 +101,30 @@ def history_sweep(
             models = {
                 "ETS": with_history_limit(ETSModel().forecast, limit),
                 INCUMBENT: with_history_limit(SarimaModel().forecast, limit),
+                TUNED: with_history_limit(AutoSarimaModel().forecast, limit),
                 CHALLENGER: with_history_limit(chronos.forecast, limit),
             }
             mase = summarize(score_forecasts(backtest_forecasts(series, models)))["mase"]
         rows[_history_label(limit)] = mase
-    cols = [BASELINE, INCUMBENT, "ETS", CHALLENGER]
+    cols = [BASELINE, INCUMBENT, TUNED, "ETS", CHALLENGER]
     return pd.DataFrame(rows).T[cols]
+
+
+def fold_table(scores: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
+    """Per-fold MASE of Chronos-Bolt vs both SARIMAs, with the test window dates.
+
+    ``best_sarima`` is the lower of the fixed and tuned SARIMA in that fold: a
+    best-of-two picked after the fact, so it is deliberately generous to SARIMA.
+    """
+    h2h = head_to_head(scores, CHALLENGER, INCUMBENT)
+    tuned = head_to_head(scores, CHALLENGER, TUNED).set_index("fold")["incumbent"]
+    h2h["tuned"] = h2h["fold"].map(tuned)
+    h2h["best_sarima"] = h2h[["incumbent", "tuned"]].min(axis=1)
+    h2h["diff_vs_best"] = h2h["challenger"] - h2h["best_sarima"]
+    windows = forecasts.groupby("fold")["date"].agg(["min", "max"])
+    h2h["test_start"] = [str(windows.loc[f, "min"].date()) for f in h2h["fold"]]
+    h2h["test_end"] = [str(windows.loc[f, "max"].date()) for f in h2h["fold"]]
+    return h2h
 
 
 def evaluate_series(label: str, country: str, chronos: ChronosBoltModel) -> dict:
@@ -108,9 +132,11 @@ def evaluate_series(label: str, country: str, chronos: ChronosBoltModel) -> dict
     start, end = series.index.min().date(), series.index.max().date()
     print(f"  {label}: {len(series)} days, {start} -> {end}")
 
+    tuned = AutoSarimaModel()
     models = {
         "ETS": ETSModel().forecast,
         INCUMBENT: SarimaModel().forecast,
+        TUNED: tuned.forecast,
         "LightGBM": LightGBMModel().forecast,
         CHALLENGER: chronos.forecast,
     }
@@ -119,11 +145,6 @@ def evaluate_series(label: str, country: str, chronos: ChronosBoltModel) -> dict
     summary = summarize(scores)
     print(summary.round(3).to_string())
 
-    h2h = head_to_head(scores, CHALLENGER, INCUMBENT)
-    windows = forecasts.groupby("fold")["date"].agg(["min", "max"])
-    h2h["test_start"] = [str(windows.loc[f, "min"].date()) for f in h2h["fold"]]
-    h2h["test_end"] = [str(windows.loc[f, "max"].date()) for f in h2h["fold"]]
-
     print(f"  {label}: history-length sweep ...")
     history = history_sweep(series, chronos, summary)
 
@@ -131,7 +152,8 @@ def evaluate_series(label: str, country: str, chronos: ChronosBoltModel) -> dict
         "label": label,
         "series": series,
         "summary": summary,
-        "head_to_head": h2h,
+        "head_to_head": fold_table(scores, forecasts),
+        "tuned_orders": tuned.selected,
         "horizon": horizon_profile(forecasts),
         "history": history,
     }
@@ -142,7 +164,7 @@ def _fmt(x: float, digits: int = 3) -> str:
 
 
 def _conditions(results: list[dict]) -> tuple[list[str], list[str]]:
-    """Every (series, slice) cell, split by whether Chronos-Bolt has the lower MASE."""
+    """Every (series, slice) cell, split by whether Chronos-Bolt beats *both* SARIMAs."""
     wins, losses = [], []
     for r in results:
         summ, hz, hist = r["summary"], r["horizon"], r["history"]
@@ -151,6 +173,7 @@ def _conditions(results: list[dict]) -> tuple[list[str], list[str]]:
                 "full history, all lead times",
                 summ.loc[CHALLENGER, "mase"],
                 summ.loc[INCUMBENT, "mase"],
+                summ.loc[TUNED, "mase"],
             )
         ]
         for bucket in hz.columns:
@@ -159,6 +182,7 @@ def _conditions(results: list[dict]) -> tuple[list[str], list[str]]:
                     f"full history, days {bucket} ahead",
                     hz.loc[CHALLENGER, bucket],
                     hz.loc[INCUMBENT, bucket],
+                    hz.loc[TUNED, bucket],
                 )
             )
         for days in hist.index:
@@ -169,11 +193,15 @@ def _conditions(results: list[dict]) -> tuple[list[str], list[str]]:
                     f"last {days} days of history, all lead times",
                     hist.loc[days, CHALLENGER],
                     hist.loc[days, INCUMBENT],
+                    hist.loc[days, TUNED],
                 )
             )
-        for desc, c, s in cells:
-            line = f"{r['label']}, {desc}: Chronos-Bolt {_fmt(c)} vs SARIMA {_fmt(s)}"
-            (wins if c < s else losses).append(line)
+        for desc, c, s, t in cells:
+            line = (
+                f"{r['label']}, {desc}: Chronos-Bolt {_fmt(c)} vs SARIMA {_fmt(s)}, "
+                f"SARIMA-tuned {_fmt(t)}"
+            )
+            (wins if c < min(s, t) else losses).append(line)
     return wins, losses
 
 
@@ -195,9 +223,11 @@ def write_markdown(results: list[dict], env: dict) -> None:
         "retailer does not trade on Saturdays).",
         "- **Metric.** MASE, scaled by each fold's in-sample seasonal-naive (m = 7) "
         "error, averaged across folds. sMAPE and RMSE are reported alongside.",
-        "- **Baselines.** Seasonal-naive (m = 7) and SARIMA(1,1,1)(1,1,1)7, the same "
-        "fixed specification as the main backtest (not re-tuned per fold). ETS and "
-        "LightGBM are included for continuity with the main results.",
+        "- **Baselines.** Seasonal-naive (m = 7); SARIMA(1,1,1)(1,1,1)7, the same "
+        "fixed specification as the main backtest; and `SARIMA-tuned`, which re-selects "
+        "(p,q)(P,Q) in {0,1,2}x{0,1,2}x{0,1}x{0,1} by AIC on each fold's training data "
+        "(d = D = 1, so AIC is comparable). ETS and LightGBM are included for "
+        "continuity with the main results.",
         f"- **Pretrained model.** `{env['model_id']}`, zero-shot: pretrained weights, "
         "no fine-tuning, only the fold's training history as context. Point forecast "
         "is the 0.5 quantile (the optimal point forecast under absolute error).",
@@ -211,7 +241,9 @@ def write_markdown(results: list[dict], env: dict) -> None:
     ]
     for r in results:
         s = r["summary"]
-        c, inc, base = (s.loc[m, "mase"] for m in (CHALLENGER, INCUMBENT, BASELINE))
+        c, inc, tun, base = (
+            s.loc[m, "mase"] for m in (CHALLENGER, INCUMBENT, TUNED, BASELINE)
+        )
         h2h = r["head_to_head"]
         rel = (c - inc) / inc
         word = "lower" if c < inc else "higher"
@@ -222,7 +254,9 @@ def write_markdown(results: list[dict], env: dict) -> None:
             f"**{int(h2h['challenger_wins'].sum())} of {len(h2h)} folds**. Median "
             f"per-fold difference {h2h['diff'].median():+.3f}; largest "
             f"{worst['diff']:+.3f} (fold {int(worst['fold'])}, {worst['test_start']} to "
-            f"{worst['test_end']}). Seasonal-naive: {_fmt(base)}."
+            f"{worst['test_end']}). AIC-tuned SARIMA: **{_fmt(tun)}** (Chronos-Bolt "
+            f"lower in {int((h2h['challenger'] < h2h['tuned']).sum())} of {len(h2h)} "
+            f"folds). Seasonal-naive: {_fmt(base)}."
         )
 
     lines += ["", "## Full-history backtest (mean across folds)", ""]
@@ -243,20 +277,37 @@ def write_markdown(results: list[dict], env: dict) -> None:
     lines += [
         "## Fold by fold: Chronos-Bolt vs SARIMA (MASE)",
         "",
-        "| series | fold | test window | SARIMA | Chronos-Bolt | difference | lower |",
+        "`best SARIMA` is the lower of the two SARIMAs in that fold, chosen after "
+        "seeing the test error, so it is deliberately generous to SARIMA.",
+        "",
+        "| series | fold | test window | SARIMA | SARIMA-tuned | Chronos-Bolt "
+        "| Chronos-Bolt minus best SARIMA |",
         "|---|---|---|---|---|---|---|",
     ]
     for r in results:
         for _, row in r["head_to_head"].iterrows():
             lines.append(
                 f"| {r['label']} | {int(row['fold'])} | {row['test_start']} to "
-                f"{row['test_end']} | {row['incumbent']:.3f} | {row['challenger']:.3f} | "
-                f"{row['diff']:+.3f} | {CHALLENGER if row['challenger_wins'] else INCUMBENT} |"
+                f"{row['test_end']} | {row['incumbent']:.3f} | {row['tuned']:.3f} | "
+                f"{row['challenger']:.3f} | {row['diff_vs_best']:+.3f} |"
             )
     lines += [
         "",
         f"With {config.N_FOLDS} folds per series, a win count is descriptive, not a "
         "significance test.",
+        "",
+        "## SARIMA orders chosen by AIC (full history)",
+        "",
+        "| series | train ends | train days | (p,d,q) | (P,D,Q)7 | AIC |",
+        "|---|---|---|---|---|---|",
+    ]
+    for r in results:
+        for sel in r["tuned_orders"]:
+            lines.append(
+                f"| {r['label']} | {sel['train_end']} | {sel['n_train']} | "
+                f"{sel['order']} | {sel['seasonal_order']} | {sel['aic']:.1f} |"
+            )
+    lines += [
         "",
         "## MASE by lead time (full history)",
         "",
@@ -294,9 +345,9 @@ def write_markdown(results: list[dict], env: dict) -> None:
         lines.append("")
 
     wins, losses = _conditions(results)
-    lines += ["## Where Chronos-Bolt beats SARIMA in this backtest", ""]
+    lines += ["## Where Chronos-Bolt beats both SARIMAs in this backtest", ""]
     lines += [f"- {w}" for w in wins] or ["- Nowhere."]
-    lines += ["", "## Where it does not (SARIMA lower or equal)", ""]
+    lines += ["", "## Where it does not (either SARIMA lower or equal)", ""]
     lines += [f"- {w}" for w in losses] or ["- Nowhere."]
 
     lines += [
@@ -305,8 +356,8 @@ def write_markdown(results: list[dict], env: dict) -> None:
         "",
         "- One retailer, two daily series, six 28-day test windows each. Differences of "
         "a few percent in MASE are within fold-to-fold noise.",
-        "- SARIMA uses one fixed order chosen up front, not a per-fold order search. A "
-        "per-fold search could move its numbers in either direction.",
+        "- SARIMA tuning is a small AIC grid with fixed differencing, not a full "
+        "auto-ARIMA search. A wider search could move SARIMA in either direction.",
         "- The model's public pretraining corpus is not audited here for overlap with "
         "UCI Online Retail II. Overlap would flatter the pretrained model.",
         "- Point forecasts only. The quantile forecasts are not scored for coverage.",
@@ -343,6 +394,7 @@ def write_json(results: list[dict], env: dict) -> None:
                 "end": str(r["series"].index.max().date()),
                 "metrics_by_model": _records(r["summary"], "model"),
                 "head_to_head": r["head_to_head"].round(4).to_dict(orient="records"),
+                "sarima_tuned_orders": r["tuned_orders"],
                 "mase_by_lead_time": _records(r["horizon"], "model"),
                 "mase_by_history_days": _records(r["history"], "history_days"),
             }
@@ -382,7 +434,8 @@ def main() -> None:
         s = r["summary"]
         print(
             f"{r['label']}: Chronos-Bolt MASE {s.loc[CHALLENGER, 'mase']:.3f} vs "
-            f"SARIMA {s.loc[INCUMBENT, 'mase']:.3f} vs seasonal-naive "
+            f"SARIMA {s.loc[INCUMBENT, 'mase']:.3f} vs SARIMA-tuned "
+            f"{s.loc[TUNED, 'mase']:.3f} vs seasonal-naive "
             f"{s.loc[BASELINE, 'mase']:.3f}"
         )
     print(f"Wrote {RESULTS_MD}, {config.DOCS_DIR / CHART}, {RESULTS_JSON}")

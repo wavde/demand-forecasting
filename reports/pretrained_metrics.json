@@ -38,6 +38,14 @@
           "mase_improve_pct": 18.5436
         },
         {
+          "model": "SARIMA-tuned",
+          "smape": 29.8713,
+          "rmse": 7064.1393,
+          "mase": 0.748,
+          "smape_improve_pct": 20.8378,
+          "mase_improve_pct": 17.7928
+        },
+        {
           "model": "ETS",
           "smape": 30.6264,
           "rmse": 7174.267,
@@ -77,6 +85,9 @@
           "challenger": 0.4253,
           "diff": 0.0128,
           "challenger_wins": false,
+          "tuned": 0.4106,
+          "best_sarima": 0.4106,
+          "diff_vs_best": 0.0147,
           "test_start": "2011-06-25",
           "test_end": "2011-07-22"
         },
@@ -86,6 +97,9 @@
           "challenger": 0.6399,
           "diff": 0.0122,
           "challenger_wins": false,
+          "tuned": 0.6195,
+          "best_sarima": 0.6195,
+          "diff_vs_best": 0.0204,
           "test_start": "2011-07-23",
           "test_end": "2011-08-19"
         },
@@ -95,6 +109,9 @@
           "challenger": 0.7586,
           "diff": 0.007,
           "challenger_wins": false,
+          "tuned": 0.7501,
+          "best_sarima": 0.7501,
+          "diff_vs_best": 0.0085,
           "test_start": "2011-08-20",
           "test_end": "2011-09-16"
         },
@@ -104,6 +121,9 @@
           "challenger": 0.7802,
           "diff": -0.0462,
           "challenger_wins": true,
+          "tuned": 0.8316,
+          "best_sarima": 0.8264,
+          "diff_vs_best": -0.0462,
           "test_start": "2011-09-17",
           "test_end": "2011-10-14"
         },
@@ -113,6 +133,9 @@
           "challenger": 0.7985,
           "diff": 0.0104,
           "challenger_wins": false,
+          "tuned": 0.8454,
+          "best_sarima": 0.788,
+          "diff_vs_best": 0.0104,
           "test_start": "2011-10-15",
           "test_end": "2011-11-11"
         },
@@ -122,8 +145,103 @@
           "challenger": 1.3007,
           "diff": 0.2599,
           "challenger_wins": false,
+          "tuned": 1.031,
+          "best_sarima": 1.031,
+          "diff_vs_best": 0.2697,
           "test_start": "2011-11-12",
           "test_end": "2011-12-09"
+        }
+      ],
+      "sarima_tuned_orders": [
+        {
+          "train_end": "2011-06-24",
+          "n_train": 571,
+          "order": [
+            2,
+            1,
+            2
+          ],
+          "seasonal_order": [
+            1,
+            1,
+            1
+          ],
+          "aic": 11696.95
+        },
+        {
+          "train_end": "2011-07-22",
+          "n_train": 599,
+          "order": [
+            2,
+            1,
+            2
+          ],
+          "seasonal_order": [
+            0,
+            1,
+            1
+          ],
+          "aic": 12262.69
+        },
+        {
+          "train_end": "2011-08-19",
+          "n_train": 627,
+          "order": [
+            2,
+            1,
+            2
+          ],
+          "seasonal_order": [
+            1,
+            1,
+            1
+          ],
+          "aic": 12835.75
+        },
+        {
+          "train_end": "2011-09-16",
+          "n_train": 655,
+          "order": [
+            2,
+            1,
+            2
+          ],
+          "seasonal_order": [
+            0,
+            1,
+            1
+          ],
+          "aic": 13414.73
+        },
+        {
+          "train_end": "2011-10-14",
+          "n_train": 683,
+          "order": [
+            0,
+            1,
+            1
+          ],
+          "seasonal_order": [
+            0,
+            1,
+            1
+          ],
+          "aic": 13938.21
+        },
+        {
+          "train_end": "2011-11-11",
+          "n_train": 711,
+          "order": [
+            1,
+            1,
+            2
+          ],
+          "seasonal_order": [
+            1,
+            1,
+            1
+          ],
+          "aic": 14568.12
         }
       ],
       "mase_by_lead_time": [
@@ -156,6 +274,13 @@
           "22-28": 1.0548
         },
         {
+          "model": "SARIMA-tuned",
+          "1-7": 0.6615,
+          "8-14": 0.5673,
+          "15-21": 0.6904,
+          "22-28": 1.0728
+        },
+        {
           "model": "seasonal_naive",
           "1-7": 0.6727,
           "8-14": 0.7095,
@@ -168,6 +293,7 @@
           "history_days": "full",
           "seasonal_naive": 0.9099,
           "SARIMA": 0.7412,
+          "SARIMA-tuned": 0.748,
           "ETS": 0.7733,
           "Chronos-Bolt": 0.7839
         },
@@ -175,6 +301,7 @@
           "history_days": "365",
           "seasonal_naive": 0.9099,
           "SARIMA": 0.7214,
+          "SARIMA-tuned": 0.7407,
           "ETS": 0.7693,
           "Chronos-Bolt": 0.7609
         },
@@ -182,6 +309,7 @@
           "history_days": "112",
           "seasonal_naive": 0.9099,
           "SARIMA": 0.7581,
+          "SARIMA-tuned": 0.8522,
           "ETS": 0.7232,
           "Chronos-Bolt": 0.8115
         },
@@ -189,6 +317,7 @@
           "history_days": "56",
           "seasonal_naive": 0.9099,
           "SARIMA": 0.85,
+          "SARIMA-tuned": 1.0477,
           "ETS": 0.807,
           "Chronos-Bolt": 0.7287
         }
@@ -206,6 +335,14 @@
           "mase": 0.584,
           "smape_improve_pct": 27.7959,
           "mase_improve_pct": 35.5952
+        },
+        {
+          "model": "SARIMA-tuned",
+          "smape": 72.9785,
+          "rmse": 3272.8913,
+          "mase": 0.5841,
+          "smape_improve_pct": 27.4642,
+          "mase_improve_pct": 35.5879
         },
         {
           "model": "Chronos-Bolt",
@@ -247,6 +384,9 @@
           "challenger": 0.4175,
           "diff": -0.0392,
           "challenger_wins": true,
+          "tuned": 0.454,
+          "best_sarima": 0.454,
+          "diff_vs_best": -0.0365,
           "test_start": "2011-06-25",
           "test_end": "2011-07-22"
         },
@@ -256,6 +396,9 @@
           "challenger": 0.7196,
           "diff": 0.0149,
           "challenger_wins": false,
+          "tuned": 0.7097,
+          "best_sarima": 0.7047,
+          "diff_vs_best": 0.0149,
           "test_start": "2011-07-23",
           "test_end": "2011-08-19"
         },
@@ -265,6 +408,9 @@
           "challenger": 0.45,
           "diff": -0.0161,
           "challenger_wins": true,
+          "tuned": 0.4641,
+          "best_sarima": 0.4641,
+          "diff_vs_best": -0.0141,
           "test_start": "2011-08-20",
           "test_end": "2011-09-16"
         },
@@ -274,6 +420,9 @@
           "challenger": 0.6381,
           "diff": 0.0266,
           "challenger_wins": false,
+          "tuned": 0.6214,
+          "best_sarima": 0.6114,
+          "diff_vs_best": 0.0266,
           "test_start": "2011-09-17",
           "test_end": "2011-10-14"
         },
@@ -283,6 +432,9 @@
           "challenger": 0.7775,
           "diff": -0.0029,
           "challenger_wins": true,
+          "tuned": 0.7802,
+          "best_sarima": 0.7802,
+          "diff_vs_best": -0.0027,
           "test_start": "2011-10-15",
           "test_end": "2011-11-11"
         },
@@ -292,8 +444,103 @@
           "challenger": 0.5298,
           "diff": 0.0453,
           "challenger_wins": false,
+          "tuned": 0.4749,
+          "best_sarima": 0.4749,
+          "diff_vs_best": 0.0549,
           "test_start": "2011-11-12",
           "test_end": "2011-12-09"
+        }
+      ],
+      "sarima_tuned_orders": [
+        {
+          "train_end": "2011-06-24",
+          "n_train": 571,
+          "order": [
+            2,
+            1,
+            2
+          ],
+          "seasonal_order": [
+            0,
+            1,
+            1
+          ],
+          "aic": 11521.77
+        },
+        {
+          "train_end": "2011-07-22",
+          "n_train": 599,
+          "order": [
+            2,
+            1,
+            2
+          ],
+          "seasonal_order": [
+            0,
+            1,
+            1
+          ],
+          "aic": 12079.59
+        },
+        {
+          "train_end": "2011-08-19",
+          "n_train": 627,
+          "order": [
+            2,
+            1,
+            2
+          ],
+          "seasonal_order": [
+            0,
+            1,
+            1
+          ],
+          "aic": 12640.71
+        },
+        {
+          "train_end": "2011-09-16",
+          "n_train": 655,
+          "order": [
+            2,
+            1,
+            2
+          ],
+          "seasonal_order": [
+            0,
+            1,
+            1
+          ],
+          "aic": 13196.74
+        },
+        {
+          "train_end": "2011-10-14",
+          "n_train": 683,
+          "order": [
+            2,
+            1,
+            2
+          ],
+          "seasonal_order": [
+            0,
+            1,
+            1
+          ],
+          "aic": 13755.68
+        },
+        {
+          "train_end": "2011-11-11",
+          "n_train": 711,
+          "order": [
+            2,
+            1,
+            2
+          ],
+          "seasonal_order": [
+            0,
+            1,
+            1
+          ],
+          "aic": 14321.86
         }
       ],
       "mase_by_lead_time": [
@@ -326,6 +573,13 @@
           "22-28": 0.622
         },
         {
+          "model": "SARIMA-tuned",
+          "1-7": 0.6973,
+          "8-14": 0.4746,
+          "15-21": 0.5465,
+          "22-28": 0.6179
+        },
+        {
           "model": "seasonal_naive",
           "1-7": 1.0725,
           "8-14": 0.7258,
@@ -338,6 +592,7 @@
           "history_days": "full",
           "seasonal_naive": 0.9067,
           "SARIMA": 0.584,
+          "SARIMA-tuned": 0.5841,
           "ETS": 0.6051,
           "Chronos-Bolt": 0.5887
         },
@@ -345,6 +600,7 @@
           "history_days": "365",
           "seasonal_naive": 0.9067,
           "SARIMA": 0.6121,
+          "SARIMA-tuned": 0.6006,
           "ETS": 0.6149,
           "Chronos-Bolt": 0.5942
         },
@@ -352,6 +608,7 @@
           "history_days": "112",
           "seasonal_naive": 0.9067,
           "SARIMA": 0.6778,
+          "SARIMA-tuned": 0.6504,
           "ETS": 0.6595,
           "Chronos-Bolt": 0.5894
         },
@@ -359,6 +616,7 @@
           "history_days": "56",
           "seasonal_naive": 0.9067,
           "SARIMA": 0.7369,
+          "SARIMA-tuned": 0.7024,
           "ETS": 0.729,
           "Chronos-Bolt": 0.6004
         }

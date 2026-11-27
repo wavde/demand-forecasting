@@ -2,12 +2,14 @@
 
 - ``ETSModel``    : exponential smoothing (statsmodels), additive trend + weekly season.
 - ``SarimaModel`` : SARIMA(1,1,1)(1,1,1)_7, a classical seasonal benchmark.
+- ``AutoSarimaModel``: SARIMA with (p,q)(P,Q) re-selected by AIC on each training split.
 - ``LightGBMModel``: gradient-boosted trees on lag/rolling/calendar features, forecast
   recursively, with quantile models for prediction intervals.
 """
 
 from __future__ import annotations
 
+import itertools
 import warnings
 from dataclasses import dataclass, field
 
@@ -18,7 +20,7 @@ import pandas as pd
 from . import config
 from .features import FEATURE_COLUMNS, make_features
 
-__all__ = ["ETSModel", "SarimaModel", "LightGBMModel", "ForecastResult"]
+__all__ = ["ETSModel", "SarimaModel", "AutoSarimaModel", "LightGBMModel", "ForecastResult"]
 
 
 @dataclass
@@ -97,6 +99,75 @@ class SarimaModel:
             lower=np.clip(ci[:, 0], 0, None),
             upper=np.clip(ci[:, 1], 0, None),
         )
+
+
+class AutoSarimaModel:
+    """SARIMA(p,1,q)(P,1,Q)_m with the orders picked by AIC on each training split.
+
+    Differencing is fixed (d = D = 1) so AIC is comparable across candidates: every
+    candidate is fit to the same differenced series. Selection uses only the history
+    passed in, never the test window. ``selected`` records every choice made, in order.
+    """
+
+    name = "SARIMA-tuned"
+
+    def __init__(
+        self,
+        seasonal_periods: int = config.SEASONAL_PERIOD,
+        p_values: tuple[int, ...] = (0, 1, 2),
+        q_values: tuple[int, ...] = (0, 1, 2),
+        seasonal_p_values: tuple[int, ...] = (0, 1),
+        seasonal_q_values: tuple[int, ...] = (0, 1),
+    ) -> None:
+        self.m = seasonal_periods
+        self.candidates = [
+            ((p, 1, q), (sp, 1, sq, seasonal_periods))
+            for p, q, sp, sq in itertools.product(
+                p_values, q_values, seasonal_p_values, seasonal_q_values
+            )
+        ]
+        self.selected: list[dict] = []
+
+    def select(self, history: pd.Series):
+        """Fit every candidate on ``history`` and return the lowest-AIC fit."""
+        from statsmodels.tsa.statespace.sarimax import SARIMAX
+
+        y = history.astype(float)
+        best, best_aic, best_spec = None, np.inf, None
+        for order, seasonal_order in self.candidates:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                try:
+                    fit = SARIMAX(
+                        y,
+                        order=order,
+                        seasonal_order=seasonal_order,
+                        enforce_stationarity=False,
+                        enforce_invertibility=False,
+                    ).fit(disp=False)
+                except (ValueError, np.linalg.LinAlgError):
+                    continue
+            if np.isfinite(fit.aic) and fit.aic < best_aic:
+                best, best_aic, best_spec = fit, float(fit.aic), (order, seasonal_order)
+        if best is None:
+            raise RuntimeError("no SARIMA candidate could be fit")
+        self.selected.append(
+            {
+                "train_end": str(history.index[-1].date()),
+                "n_train": int(len(history)),
+                "order": best_spec[0],
+                "seasonal_order": best_spec[1][:3],
+                "aic": round(best_aic, 2),
+            }
+        )
+        return best
+
+    def forecast(self, history: pd.Series, horizon: int) -> np.ndarray:
+        fit = self.select(history)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            pred = fit.forecast(horizon)
+        return np.clip(np.asarray(pred, dtype=float), 0, None)
 
 
 @dataclass

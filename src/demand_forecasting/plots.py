@@ -31,9 +31,11 @@ _ORANGE = "#f59e0b"
 _GREY = "#8b95a7"
 _GREEN = "#16a34a"
 _PURPLE = "#7c3aed"
+_RED = "#dc2626"
 _MODEL_COLORS = {
     "seasonal_naive": _GREY,
     "SARIMA": _BLUE,
+    "SARIMA-tuned": _RED,
     "ETS": _GREEN,
     "LightGBM": _PURPLE,
     "Chronos-Bolt": _ORANGE,
