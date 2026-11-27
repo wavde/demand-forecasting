@@ -5,6 +5,11 @@ One command, after installing the optional extra:
     pip install -r requirements-pretrained.txt
     python run_pretrained.py
 
+CI smoke run (no torch, no model weights, no download; a seasonal-naive stub stands
+in for Chronos-Bolt, synthetic data, small SARIMA grid, outputs to a temp dir):
+
+    python run_pretrained.py --smoke
+
 Every model, including the pretrained one, is scored on exactly the folds, horizon,
 metrics, baselines and closed-day rule used by ``run.py``: 6 rolling-origin folds,
 28-day horizon, MASE scaled by the in-sample seasonal-naive error. Chronos-Bolt is
@@ -22,10 +27,12 @@ Outputs:
 
 from __future__ import annotations
 
+import argparse
 import json
 import platform
 import random
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
@@ -69,6 +76,8 @@ PRIMARY = "UK"
 # Training history each model is allowed to see in the sweep (None = everything).
 # The seasonal-naive baseline only ever uses the last 7 days, so it is unaffected.
 HISTORY_LIMITS: tuple[int | None, ...] = (None, 365, 112, 56)
+# Keyword arguments for AutoSarimaModel; empty means its full default grid.
+TUNED_GRID: dict = {}
 
 RESULTS_MD = config.DOCS_DIR / "pretrained_results.md"
 RESULTS_JSON = config.REPORTS_DIR / "pretrained_metrics.json"
@@ -101,7 +110,7 @@ def history_sweep(
             models = {
                 "ETS": with_history_limit(ETSModel().forecast, limit),
                 INCUMBENT: with_history_limit(SarimaModel().forecast, limit),
-                TUNED: with_history_limit(AutoSarimaModel().forecast, limit),
+                TUNED: with_history_limit(AutoSarimaModel(**TUNED_GRID).forecast, limit),
                 CHALLENGER: with_history_limit(chronos.forecast, limit),
             }
             mase = summarize(score_forecasts(backtest_forecasts(series, models)))["mase"]
@@ -132,7 +141,7 @@ def evaluate_series(label: str, country: str, chronos: ChronosBoltModel) -> dict
     start, end = series.index.min().date(), series.index.max().date()
     print(f"  {label}: {len(series)} days, {start} -> {end}")
 
-    tuned = AutoSarimaModel()
+    tuned = AutoSarimaModel(**TUNED_GRID)
     models = {
         "ETS": ETSModel().forecast,
         INCUMBENT: SarimaModel().forecast,
@@ -404,13 +413,41 @@ def write_json(results: list[dict], env: dict) -> None:
     RESULTS_JSON.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
 
 
+def _activate_smoke() -> tuple[ChronosBoltModel, dict]:
+    """Synthetic data, temp outputs, a stub forecaster and a reduced grid (CI only)."""
+    global RESULTS_MD, RESULTS_JSON, HISTORY_LIMITS, TUNED_GRID
+    from demand_forecasting import smoke
+
+    smoke.activate(Path(tempfile.mkdtemp()))
+    RESULTS_MD = config.DOCS_DIR / "pretrained_results.md"
+    RESULTS_JSON = config.REPORTS_DIR / "pretrained_metrics.json"
+    HISTORY_LIMITS = (None, 56)
+    TUNED_GRID = {"p_values": (1,), "q_values": (0, 1), "seasonal_p_values": (0,),
+                  "seasonal_q_values": (1,)}
+    print(f"SMOKE RUN: synthetic data and a seasonal-naive stub for Chronos-Bolt, "
+          f"outputs under {config.DOCS_DIR.parent}")
+    chronos = ChronosBoltModel(predict_fn=smoke.stub_chronos_predictor)
+    env = {"model_id": "smoke-stub (seasonal naive)", "requested_revision": "n/a",
+           "resolved_commit": "n/a", "chronos-forecasting": "not used",
+           "torch": "not used", "transformers": "not used"}
+    return chronos, env
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Zero-shot Chronos-Bolt vs SARIMA")
+    parser.add_argument("--smoke", action="store_true",
+                        help="no model download: stub forecaster, synthetic data, temp outputs")
+    smoke_run = parser.parse_args().smoke
     set_seeds()
     config.ensure_dirs()
 
-    print(f"[1/3] Loading {DEFAULT_MODEL_ID} (zero-shot, CPU) ...")
-    chronos = ChronosBoltModel()
-    env = describe_environment(chronos.model_id, chronos.revision)
+    if smoke_run:
+        print("[1/3] Smoke run: using a stub in place of Chronos-Bolt ...")
+        chronos, env = _activate_smoke()
+    else:
+        print(f"[1/3] Loading {DEFAULT_MODEL_ID} (zero-shot, CPU) ...")
+        chronos = ChronosBoltModel()
+        env = describe_environment(chronos.model_id, chronos.revision)
 
     print("[2/3] Backtesting on the shared rolling-origin folds ...")
     results = [evaluate_series(label, country, chronos) for label, country in SERIES.items()]

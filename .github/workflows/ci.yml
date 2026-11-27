@@ -29,3 +29,9 @@ jobs:
         run: ruff check .
       - name: Test
         run: pytest -q
+      - name: Smoke-run evidence pipelines
+        # Synthetic data with the UCI schema through the real cleaning code; a
+        # seasonal-naive stub stands in for Chronos-Bolt (no torch, no download).
+        run: |
+          python run.py --smoke
+          python run_pretrained.py --smoke
